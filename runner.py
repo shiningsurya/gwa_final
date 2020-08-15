@@ -118,7 +118,7 @@ class NpyClfDatasets (tud.Dataset):
 
 if __name__ == "__main__":
     DSIR = "../"
-    MDIR = "cnn/"
+    MDIR = "noise_cnn/"
     MSS   = "mixed_sine_sxx.npy"
     CHIRP = "chirp_sxx.npy"
     CCSN  = "ccsn_sxx.npy"
@@ -139,10 +139,19 @@ if __name__ == "__main__":
     CLF  = CNN_ONE(idx=50)
     LFN  = tn.CrossEntropyLoss()
     OPM  = to.Adam(CLF.parameters(), lr=1e-3,)
-    VAL_METRICS = {'loss':im.Loss (LFN), 'acc':im.Accuracy()}
+    VAL_METRICS = {
+        'loss':im.Loss (LFN), 
+        'acc':im.Accuracy(),
+        'recall':im.Recall(),
+        'precision':im.Precision(),
+        'cfm':im.ConfusionMatrix (3),
+    }
     L_TRAIN = []
     L_EVAL  = []
     L_ACC   = []
+    L_PRE   = []
+    L_REC   = []
+    L_CFM   = []
     #########################
     def train_step(engine, batch):
         CLF.train()
@@ -178,7 +187,7 @@ if __name__ == "__main__":
         save_handler = ih.DiskSaver (MDIR, require_empty=False),
         n_saved=10,
     )
-    TRAINER.add_event_handler (ie.Events.EPOCH_COMPLETED (every=50), tckp)
+    TRAINER.add_event_handler (ie.Events.EPOCH_COMPLETED (every=10), tckp)
     ###########
     ## resume logic
     if False:
@@ -208,11 +217,14 @@ if __name__ == "__main__":
         tqdm.write ("Validation :: Epoch {} Loss {:.2f} Acc {:.2f}".format (TRAINER.state.epoch, np.log10(metrics['loss']), 100*metrics['acc']))
         L_EVAL.append (metrics['loss'])
         L_ACC.append (metrics['acc'])
+        L_PRE.append (metrics['recall'])
+        L_REC.append (metrics['precision'])
+        L_CFM.append (metrics['cfm'])
         PBAR.n = PBAR.last_print_n = 0
 
     def loss_score (engine):
         return -engine.state.metrics['loss']
-    early_stopper = ih.EarlyStopping (patience=10,score_function=loss_score,trainer=TRAINER)
+    early_stopper = ih.EarlyStopping (patience=30,score_function=loss_score,trainer=TRAINER)
     EVALUATOR.add_event_handler (ie.Events.COMPLETED, early_stopper)
     #########################
     try:
@@ -223,4 +235,4 @@ if __name__ == "__main__":
     ######
     with open (os.path.join (MDIR, "losses1k.pkl"), 'wb') as lf:
         import pickle as pkl
-        pkl.dump ([L_TRAIN, L_EVAL, L_ACC], lf)
+        pkl.dump ([L_TRAIN, L_EVAL, L_ACC, L_PRE, L_REC, L_CFM], lf)
