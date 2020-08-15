@@ -1,0 +1,8 @@
+numpy
+matplotlib
+pickle
+tqdm
+pytorch
+torchvision
+pytorch-ignite
+scikit-learn
